@@ -84,6 +84,7 @@ define(function () {
       startState: function () {
         return {
           moustacheStack: [],
+          attributeValue: 0,
           hasError: false,
           errorTerminatesOn: null,
           opening: false,
@@ -91,14 +92,15 @@ define(function () {
           helperName: false,
           comment: false,
           safeComment: false,
-          doNotEscape: false
+          doNotEscape: false,
+          blockParam: false
         };
       },
       token: function (stream, state) {
         /*jslint regexp:true */
         stream.eatSpace();
         if (!state.inHandlebar) {
-          if (stream.match('{{')) {
+          if (stream.match('{{')) {// || stream.match(/<((?:\w[\w\$:\d]++(?:\-[\w\$:\d]++)+))(?:\s|>)/, false)) {
             stream.eatSpace();
             state.inHandlebar = true;
             state.helperName = true;
@@ -154,10 +156,10 @@ define(function () {
         if (state.helperName) {
           state.helperName = false;
 
-          if (!state.opening && !state.closing && stream.match(/^\s*?else/, false)) {
-            stream.match(/^\s*?else/, true);
+          if (!state.opening && !state.closing && stream.match(/^else\s*\}\}/, false)) {
+            stream.match(/^else/, true);
             stream.eatSpace();
-            return 'tag';
+            return 'keyword';
           }
           
           if (!state.opening && !state.closing && stream.match(/^[\w\d\-\_\$\.\/\@]+\s*\}\}/, false)) {
@@ -166,6 +168,7 @@ define(function () {
             return 'variable';
           }
           if (stream.match(/^[\w\d\-\_\$]+/, false)) {
+            var reserved = stream.match(/^(if|unless|else|each|with|view|action|component|yield|partial|mut)/, false);
             stream.match(/^[\w\d\-\_\$]+/, true);
             state.helperName = false;
             if (state.closing) {
@@ -175,14 +178,14 @@ define(function () {
                 console.log('Mismatched tags');
                 return 'invalidchar';
               }
-              return 'tag';
+              return reserved ? 'keyword':'tag';
             }
             if (state.opening) {
-              stream.opening = false;
+              state.opening = false;
               state.moustacheStack.push(stream.current());
             }
             state.argumentList = true;
-            return 'tag';
+            return reserved ? 'keyword':'tag';
           }
           stream.next();
           return 'invalidchar';
@@ -212,17 +215,35 @@ define(function () {
           state.attributeAssignment = false;
           return 'bracket';
         }
-        if (!state.attributeKeyword && !state.attributeAssignment && !state.attributeValue && stream.match(/^[\w\d\-\_\$]+\s*=/, false)) {
+          
+        if (!state.attributeKeyword && !state.attributeAssignment && !state.attributeValue) {
+        
+          if (!state.closing && stream.match(/^\|/, false)) {
+            state.blockParam = !state.blockParam;
+            stream.match(/^\|/, true);
+            stream.eatSpace();
+            return 'bracket';
+          }
+            
+          if (!state.closing && stream.match(/^\s*?(else|if|as|in)\s+/, false)) {
+            stream.match(/^\s*?(else|if|as|in)/, true);
+            stream.eatSpace();
+            return 'keyword';
+          }
+            
+        }
+          
+        if (!state.attributeKeyword && !state.attributeAssignment && stream.match(/^[\w\d\-\_\$]+\s*=/, false)) {
           state.argumentList = false;
           stream.match(/^[\w\d\-\_\$]+/, true);
           if (/Binding$/.test(stream.current())) {
             stream.backUp(7);
             state.attributeKeyword = true;
-            return 'number'; 
+            return 'property'; 
           }
           stream.eatSpace();
           state.attributeAssignment = true;
-          return 'number';
+          return 'property';
         }
         if (state.attributeKeyword) {
           stream.skipTo('=');
@@ -232,44 +253,69 @@ define(function () {
         }
         if (state.attributeAssignment) {
           state.attributeAssignment = false;
-          state.attributeValue = true;
+          state.attributeValue++;
           if (stream.next() !== '=') {
             console.log('Expected =');
             return 'invalidchar';
           }
           return 'operator';
-        } 
-        if (state.attributeValue) {
-          state.attributeValue = false;
-          if (stream.match(/^("([^\\"]|\\\\|\\")*")|('([^\\']|\\\\|\\')*')/, false)) {
-            stream.match(/^("([^\\"]|\\\\|\\")*")|('([^\\']|\\\\|\\')*')/, true);
-            stream.eatSpace();
-            return 'atom';
-          }
-          if (stream.match(/^("([^\\"]|\\\\|\\")*")|('([^\\']|\\\\|\\')*')/, true)) {
-            stream.eatSpace();
-            return 'atom';
-          }
-          stream.match(/^(\s|}})+/, true);
-          console.log('Invalid attribute value');
-          return 'invalidchar';
         }
+        
         if (state.argumentList) {
           if (stream.match(/^("([^\\"]|\\\\|\\")*")|('([^\\']|\\\\|\\')*')/, false)) {
             stream.match(/^("([^\\"]|\\\\|\\")*")|('([^\\']|\\\\|\\')*')/, true);
             stream.eatSpace();
-            return 'atom';
+            return 'string';
           }
           if (stream.match(/^("([^\\"]|\\\\|\\")*")|('([^\\']|\\\\|\\')*')/, true)) {
             stream.eatSpace();
-            return 'atom';
+            return 'string';
           }
+        }
+          
+        if (state.argumentList || state.blockParam) {
+            
           if (stream.match(/^[A-Za-z0-9\._$]+/, true)) {
             stream.eatSpace();
             return 'variable';
           }
+            
         }
-
+          
+        if (state.attributeValue) {
+          
+          if (stream.match(/^("([^\\"]|\\\\|\\")*")|('([^\\']|\\\\|\\')*')/, false)) {
+            stream.match(/^("([^\\"]|\\\\|\\")*")|('([^\\']|\\\\|\\')*')/, true);
+            stream.eatSpace();
+            state.attributeValue--;
+            return 'string';
+          }
+          if (stream.match(/^("([^\\"]|\\\\|\\")*")|('([^\\']|\\\\|\\')*')/, true)) {
+            stream.eatSpace();
+            state.attributeValue--;
+            return 'string';
+          }
+          if (stream.match(/^[A-Za-z0-9\._$]+/, true)) {
+            stream.eatSpace();
+            state.attributeValue--;
+            return 'variable-2';
+          }
+          if (stream.match(/^\([^\)]+/, false)) {
+            stream.match(/^\(/, true);
+            state.helperName = true;
+            return 'bracket';
+          }
+          if (stream.match(/^\)/, true)) {
+            stream.eatSpace();
+            state.attributeValue--;
+            return 'bracket';
+          }
+          stream.match(/^(\s|}})+/, true);
+          console.log('Invalid attribute value');
+          state.attributeValue--;
+          return 'invalidchar';
+        }
+          
         console.log('Bad data: ', stream.next(), state);
         return 'invalidchar';
       }
