@@ -1,6 +1,8 @@
 Handlebars highlighter for Brackets [![Build Status](https://travis-ci.org/karl-sjogren/brackets-handlebars-templates.svg?branch=master)](https://travis-ci.org/karl-sjogren/brackets-handlebars-templates)
 ===============================
 
+**This project has been abandoned since I don't use Brackets anymore. If you need something fixed in this plugin then fork it and fix it yourself.**
+
 A syntax highlighting plugin for [Handlebars templates](http://handlebarsjs.com/) in the [Brackets editor](http://brackets.io/).
 
 After installation you will get mixed syntax highlightning for html and handlebars in .hbs and .handlebars files.
@@ -13,10 +15,3 @@ Installing
 The easiest way to install this extension is to use the [Extension Manager](github.com/adobe/brackets/wiki/Brackets-Extensions) in Brackets.
 
 If you want the cutting-edge version you can always clone this repo and manually install it into the brackets extension folder (you can find it in your system by going to Help > Show Extensions Folder in Brackets).
-
-Contributing
-------------
-
-This project was created and earlier maintaned by [Bryan Eliott](https://github.com/Fordi). If you want to contribute features or fixes now the new maintainer is [Karl-Johan Sjögren](https://github.com/karl-sjogren) and this repo will be used.
-
-Please adhere to the codestyle used in main.js, we use two spaces for indentation, not tabs, not ever again (sorry Bryan!). There is a gruntfile included in the project that enforces some basic rules using JShint.
